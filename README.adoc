@@ -1,13 +1,10 @@
-= cross compiling with bazel
+= bazel-crosscompile
 
-== getting started
+Detailed examples demonstrating cross-platform building with Bazel
 
-android:
-
-default target is arm; to target x86 (much faster emulation):
-build --fat_apk_cpu=x86  # --android_compiler=clang3.8
-
-
+WARNING: Work In Progress. All examples have been tested on OS X;
+running on Linux or Windows may require some tweak. The documentation
+needs work but should be helpful.
 
 == how it works
 
@@ -24,6 +21,9 @@ Steps:
 5. Configure your application.
 
 === step 1: build/install the toolchain
+
+The examples use https://crosstool-ng.github.io/[crosstool-NG] and the
+https://developer.android.com/ndk/index.html[Android NDK].
 
 === step 2: configure the toolchain for Bazel
 
@@ -111,6 +111,21 @@ need; e.g. `copts = ["-Iexternal/cosysroot_<target>/usr/local/include"]`
 
 === android ndk
 
+Bazel has builtin android rules (android_binary, android_library),
+which you would normally use for targeting android. But you can also
+target android (that is, the Linux platform that android runs on) with
+cc_* rules by passing --crosstool_top and --android_crosstool_top.
+
+WARNING: Bazel's builtin toolchains for android_* rules are broken;
+they pull in the wrong headers. You need to use
+--crosstool_top=//platforms/ndk:toolchain and
+--android_crosstool_top=//platforms/ndk:toolchain.
+
+default target is arm; to target x86 (much faster emulation):
+build --fat_apk_cpu=x86  # default: --android_compiler=clang3.8
+
+See `tools/bazel.rc` for more information.
+
 Then ndk contains multiple sysroots, headers, etc.  See
 https://android.googlesource.com/platform/ndk/+/master/docs/UnifiedHeaders.md
 
@@ -142,6 +157,10 @@ $ bazel build -s --verbose_failures --sandbox_debug --crosstool_top=platforms/rp
 
 ==== macOS
 
+You will have to create a disk image (dmg file) with a case-sensitive
+file system; see
+https://www.jaredwolff.com/blog/cross-compiling-on-mac-osx-for-raspberry-pi/[Cross
+Compiling on Mac OSX for Raspberry Pi] for an example.
 
 See:
 
