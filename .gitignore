@@ -1,3 +1,33 @@
+# autotools
+autom4te*
+config.guess
+config.status
+config.sub
+
+# bazel
+.bazelrc
+# tmp dirs:
+bazel-*
+# query results
+graph.in
+
+logs/
+*.log
+
+# Ignore gnu global
+GPATH
+GRTAGS
+GTAGS
+GSYMS
+
+# Ignore editor (e.g. Emacs) backup and autosave files
+*~
+*#*#
+*.orig
+
+# in case of running screen:
+screenlog.*
+
 # Prerequisites
 *.d
 

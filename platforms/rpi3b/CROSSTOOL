@@ -1,0 +1,224 @@
+# see https://lengerrong.blogspot.com/2017/09/cross-compile-tensorflow-for-armv7l.html
+
+major_version: "local"
+minor_version: ""
+default_target_cpu: "armv8"
+default_toolchain {
+  cpu: "armv8"
+  toolchain_identifier: "armv8-rpi3-linux-gnueabihf"
+}
+# without this, we get "No toolchain found for cpu 'darwin'", even when --cpu=androideabi-4.9
+default_toolchain {
+  cpu: "darwin"
+  toolchain_identifier: "armv8-rpi3-linux-gnueabihf"
+}
+
+# Raspberry Pi 3b
+toolchain {
+
+  # abi - is this for the target?  other examples use "local"
+  abi_version: "armv7l"  # use armv8 for 64 bits
+  abi_libc_version: "armv7l"  # armv8 for 64 bits
+
+  # this is for --sysroot, search path for binaries etc. (but not libs, thats -isystem below)
+  # NB: specifying this explicitly breaks linking (e.g. /lib/libc.so.6 not found)
+  # guess: it replaces the builtin sysroot and the sandbox env does not like that
+  # builtin_sysroot: "external/rpi3b_repo/armv8-rpi3-linux-gnueabihf/armv8-rpi3-linux-gnueabihf/sysroot"
+
+  # This should contain a BUILD file, defining 'compile' and 'link' filegroups.
+  # default_grte_top: "@rpi3b_repo//:everything"
+
+  compiler: "gcc"
+  host_system_name: "local"
+  needsPic: true
+  supports_gold_linker: false
+  supports_incremental_linker: false
+  supports_fission: false
+  supports_interface_shared_objects: false
+  supports_normalizing_ar: true
+  supports_start_end_lib: false
+  supports_thin_archives: true
+  target_libc: "armv8"		# armv7l for 32 bits
+  target_cpu: "armv8"		# armv7l for 32 bits
+  target_system_name: "armv8-rpi3-linux-gnueabihf"
+  toolchain_identifier: "armv8-rpi3-linux-gnueabihf"
+
+  tool_path { name: "ar"
+    path: "/Volumes/CrossToolNG/armv8-rpi3-linux-gnueabihf/bin/armv8-rpi3-linux-gnueabihf-ar"
+  }
+  tool_path { name: "compat-ld"
+    path: "/Volumes/CrossToolNG/armv8-rpi3-linux-gnueabihf/bin/armv8-rpi3-linux-gnueabihf-ld"
+  }
+  tool_path { name: "cpp"
+    path: "/Volumes/CrossToolNG/armv8-rpi3-linux-gnueabihf/bin/armv8-rpi3-linux-gnueabihf-cpp"
+  }
+  tool_path { name: "dwp"
+    path: "/Volumes/CrossToolNG/armv8-rpi3-linux-gnueabihf/bin/armv8-rpi3-linux-gnueabihf-dwp"
+  }
+  tool_path { name: "gcc"
+    ## path: "gcc"
+    path: "/Volumes/CrossToolNG/armv8-rpi3-linux-gnueabihf/bin/armv8-rpi3-linux-gnueabihf-gcc"
+  }
+  tool_path { name: "gcov"
+    path: "/Volumes/CrossToolNG/armv8-rpi3-linux-gnueabihf/bin/armv8-rpi3-linux-gnueabihf-gcov"
+  }
+  tool_path { name: "ld"
+    path: "/Volumes/CrossToolNG/armv8-rpi3-linux-gnueabihf/bin/armv8-rpi3-linux-gnueabihf-ld"
+  }
+  tool_path { name: "nm"
+    path: "/Volumes/CrossToolNG/armv8-rpi3-linux-gnueabihf/bin/armv8-rpi3-linux-gnueabihf-nm"
+  }
+  tool_path { name: "objcopy"
+    path: "/Volumes/CrossToolNG/armv8-rpi3-linux-gnueabihf/bin/armv8-rpi3-linux-gnueabihf-objcopy"
+  }
+  tool_path { name: "strip"
+    path: "/Volumes/CrossToolNG/armv8-rpi3-linux-gnueabihf/bin/armv8-rpi3-linux-gnueabihf-strip"
+  }
+  tool_path { name: "objdump"
+    path: "/Volumes/CrossToolNG/armv8-rpi3-linux-gnueabihf/bin/armv8-rpi3-linux-gnueabihf-objdump"
+  }
+  objcopy_embed_flag: "-I"
+
+  compiler_flag: "-std=c11"
+  cxx_flag: "-std=c++11"
+  # builtin include dirs: we need these because gcc uses them
+  # to show builtin paths: echo | gcc -E -Wp,-v -
+  cxx_builtin_include_directory: "/Volumes/CrossToolNG/armv8-rpi3-linux-gnueabihf/lib/gcc/armv8-rpi3-linux-gnueabihf/6.3.0/include"
+
+  cxx_builtin_include_directory: "/Volumes/CrossToolNG/armv8-rpi3-linux-gnueabihf/lib/gcc/armv8-rpi3-linux-gnueabihf/6.3.0/include-fixed"
+
+  # without the next cxx_builtin_include_directory we get error messsages like:
+  #this rule is missing dependency declarations for the following files included by 'lib/hello-time.c':
+  # '/Volumes/CrossToolNG/armv8-rpi3-linux-gnueabihf/armv8-rpi3-linux-gnueabihf/sysroot/usr/include/stdc-predef.h'
+
+  cxx_builtin_include_directory: "/Volumes/CrossToolNG//armv8-rpi3-linux-gnueabihf//armv8-rpi3-linux-gnueabihf/sysroot/usr/include"
+
+  cxx_builtin_include_directory: "/Users/gar/sysroots/rpi3b/usr/include"
+
+  ## cxx std libs:
+  ## unfiltered_cxx_flag: "-isystem???"
+
+ # Make C++ compilation deterministic. Use linkstamping instead of these
+  # compiler symbols.
+  unfiltered_cxx_flag: "-Wno-builtin-macro-redefined"
+  unfiltered_cxx_flag: "-D__DATE__=\"redacted\""
+  unfiltered_cxx_flag: "-D__TIMESTAMP__=\"redacted\""
+  unfiltered_cxx_flag: "-D__TIME__=\"redacted\""
+
+  # Security hardening on by default.
+  # Conservative choice; -D_FORTIFY_SOURCE=2 may be unsafe in some cases.
+  # We need to undef it before redefining it as some distributions now have
+  # it enabled by default.
+  compiler_flag: "-U_FORTIFY_SOURCE"
+  compiler_flag: "-std=c11"
+  # All warnings are enabled. Maybe enable -Werror as well?
+  compiler_flag: "-Wall"
+  # Enable a few more warnings that aren't part of -Wall.
+  compiler_flag: "-Wunused-but-set-parameter"
+  # But disable some that are problematic.
+  compiler_flag: "-Wno-free-nonheap-object" # has false positives
+  # Keep stack frames for debugging, even in opt mode.
+  compiler_flag: "-fno-omit-frame-pointer"
+
+  ## compiler_flag: "-mfloat-abi=softfp"
+  ## compiler_flag: "-mfpu=vfpv3-d16"
+
+
+  ## dynamic_runtimes_filegroup: "@rpi3b_repo//:link"
+  ## static_runtimes_filegroup: "@rpi3b_repo//:link"
+
+  ## linker_flag: "-L/Users/gar/android/android-ndk-r15c/sources/cxx-stl/gnu-libstdc++/4.9/libs/armv8-rpi3/"
+  ## linker_flag: "-lgnustl_static"
+  ## linker_flag: "-lsupc++"
+  linker_flag: "-lc"
+  linker_flag: "-lm"
+
+  compilation_mode_flags {
+    mode: FASTBUILD
+  }
+  compilation_mode_flags {
+    mode: COVERAGE
+  }
+  compilation_mode_flags {
+    mode: DBG
+    # Enable debug symbols.
+    compiler_flag: "--debug"
+    compiler_flag: "-g"
+
+  # Enable coloring even if there's no attached terminal. Bazel removes the
+  # escape sequences if --nocolor is specified.
+  compiler_flag: "-fdiagnostics-color=always"
+
+    compiler_flag: "-fstack-protector"
+    compiler_flag: "-fPIE"
+    linker_flag: "-pie"
+    #linker_flag: "-Wl,-z,relro,-z,now"
+    # Stamp the binary with a unique identifier.
+    linker_flag: "-Wl,--build-id=md5"
+    linker_flag: "-Wl,--hash-style=gnu"
+    linker_flag: "-Wl,-v"
+  }
+
+  compilation_mode_flags {
+    mode: OPT
+
+    # No debug symbols.
+    # Maybe we should enable https://gcc.gnu.org/wiki/DebugFission for opt or
+    # even generally? However, that can't happen here, as it requires special
+    # handling in Bazel.
+    compiler_flag: "-g0"
+
+    # Conservative choice for -O
+    # -O3 can increase binary size and even slow down the resulting binaries.
+    # Profile first and / or use FDO if you need better performance than this.
+    # compiler_flag: "-O2"
+    # optimize for size
+    compiler_flag: "-Os"
+
+    # Disable assertions
+    compiler_flag: "-DNDEBUG"
+
+    # strip debug info
+    compiler_flag: "-s"
+
+    # https://ptspts.blogspot.com/2013/12/how-to-make-smaller-c-and-c-binaries.html
+    # Removal of unused code and data at link time (can this increase binary size in some cases?).
+    compiler_flag: "-ffunction-sections"
+    compiler_flag: "-fdata-sections"
+    linker_flag: "-Wl,--gc-sections"
+    compiler_flag: "-fno-stack-protector"
+
+    compiler_flag: "-fno-unwind-tables"
+    compiler_flag: "-fno-asynchronous-unwind-tables"
+    compiler_flag: "-fno-math-errno"
+    compiler_flag: "-fno-unroll-loops"
+    compiler_flag: "-fmerge-all-constants"
+    compiler_flag: "-fno-ident"
+
+    linker_flag: "-Wl,--build-id=none"
+    linker_flag: "-Wl,-z,norelro"
+    linker_flag: "-Wl,--hash-style=gnu"
+  }
+
+  linking_mode_flags {
+    mode: FULLY_STATIC
+  }
+
+  objcopy_embed_flag: "-I"
+  objcopy_embed_flag: "binary"
+
+  linking_mode_flags {
+    mode: MOSTLY_STATIC
+  }
+
+  linking_mode_flags {
+    mode: DYNAMIC
+  }
+
+  # This makes GCC and Clang do what we want when called through symlinks.
+  unfiltered_cxx_flag: "-fno-canonical-system-headers"
+  unfiltered_cxx_flag: "-no-canonical-prefixes"
+  linker_flag: "-no-canonical-prefixes"
+
+}
+

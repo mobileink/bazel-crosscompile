@@ -1,0 +1,408 @@
+= cross compiling with bazel
+
+== getting started
+
+android:
+
+default target is arm; to target x86 (much faster emulation):
+build --fat_apk_cpu=x86  # --android_compiler=clang3.8
+
+
+
+== how it works
+
+Steps:
+
+1. Build/install the toolchain.
+
+2. Configure the toolchain for Bazel.
+
+3. Build the third-party libs needed by your app.
+
+4. Configure the third-party libraries for Bazel.
+
+5. Configure your application.
+
+=== step 1: build/install the toolchain
+
+=== step 2: configure the toolchain for Bazel
+
+See https://github.com/bazelbuild/bazel/blob/master/src/main/protobuf/crosstool_config.proto
+
+** Define a new_local_repository in the WORKSPACE file in your project
+   root directory. This demo uses the convention `toolchain_<target>`
+   to name this repository. Its `path` points to the toolchain root
+   directory; `build_file` points to the BUILD file that integrates
+   the toolchain resources into Bazel's crosstool build mechanism.
+
+** The `build_file` associated with the `toolchain_<target>`
+   repository, which we call `platforms/<target>/toolchain.BUILD`,
+   contains `filegroup` definitions that will be used by the toolchain
+   definition.
+
+** The toolchain definition is split across two files, a CROSSTOOL
+   file and a BUILD file; these must go in the same directory. This
+   demo puts these in `platforms/<target>/`.
+
+*** `platforms/<target>/BUILD` contains (at least) two "rules":
+
+**** `cc_toolchain_suite` (whose name by convention is "toolchain"),
+     allows you to specify multiple toolchains; a toolchain is
+     selected by `--cpu` and `--compiler`.
+
+**** `cc_toolchain` integrates the toolchain definition (in the
+     CROSSTOOL file) into Bazel's build mechanism. All files needed
+     for a build must be explicitly specified to Bazel. For
+     application builds, this is done in a BUILD file using
+     e.g. `deps`, `srcs`, etc. But the requirement also applies to the
+     system files (headers, archives, libs, etc.) used by the compiler
+     and other build tools. `cc_toolchain` does this by refering to
+     the filegroups defined in `toolchain.BUILD`. These must
+     correspond to the toolchain resources specified in
+     `platforms/<target>/CROSSTOOL` For details, see ...
+
+*** `platforms/<target>/CROSSTOOL` contains toolchain definitions
+    proper. Toolchain definitions specify paths to programs (gcc, ar,
+    etc.), tool flags (e.g. compiler and linker flags), and paths for
+    include and library searches.
+
+NOTE: Toolchain resources are thus specified in two places. CROSSTOOL
+refers to them using filesystem paths. `toolchain.BUILD` defines Bazel
+filegroups that refer to them as well; this is what brings them into
+the Bazel build mechanism (sandboxing, etc.).
+
+=== step 3: build the third-party libs needed by your app
+
+This demo uses http://invisible-island.net/ncurses/[ncurses 5.9] and http://invisible-island.net/cdk/[cdk 5] (Curses Development Kit)
+
+We do not want to install third-party libs into the toolchain's
+sysroot; instead we put them in a separate directory. Since this
+directory complements the sysroot in the toolchain, we call it
+`$HOME/cosysroots/<target>`.
+
+=== step 4: configure third-party libs for Bazel
+
+Since we installed our third-party libraries outside of the toolchain,
+they are not yet available for use in builds. For that we need to:
+
+* Create a new_local_repository in WORKSPACE. By convention we name
+this `cosysroot_<target>`.  The `path` should point to the directory
+created in step 3. The `build_file` will define the
+libraries etc. that we want to use in our application; by convention
+we name this `platforms/<target>/cosysroot.BUILD`.
+
+* Write `platforms/<target>/cosysroot.BUILD`. Note this does not refer
+  to the cosysroot used by the toolchain, which is located in the
+  toolchain's directory tree. This file contains `cc_library`
+  definitions for the third-party libraries we need. This integrates
+  them into the Bazel build system.
+
+=== step 5: configure your application
+
+The third-party libs configured in step 4 are available to your
+application via normal Bazel labels,
+e.g. `@cosysroot_<target>//:cdk`. The directories in this package become
+available as `external/cosysroot_<target>/usr/include`, etc.
+
+You will also need to explicitly list the directories your app targets
+need; e.g. `copts = ["-Iexternal/cosysroot_<target>/usr/local/include"]`
+
+== demos
+
+=== android ndk
+
+Then ndk contains multiple sysroots, headers, etc.  See
+https://android.googlesource.com/platform/ndk/+/master/docs/UnifiedHeaders.md
+
+"The compile time sysroot is now $NDK/sysroot. Previously this was
+$NDK/platforms/android-$API/arch-$ARCH."
+
+API Level	Version
+23  		6 (Marshmellow)
+
+$ANDROID_NDK_HOME/build/tools/make_standalone_toolchain.py --arch arm --api 23 --install-dir /tmp/android-23-tc
+
+=== crosstool-NG
+
+See https://crosstool-ng.github.io/docs/toolchain-types/
+
+Restartable builds: see https://sourceware.org/ml/crossgcc/2011-08/msg00119.html
+In menuconfig:
+
+  Paths and misc options  -->
+      [*] Debug crosstool-NG
+      [*]   Save intermediate steps
+
+Build cmd:
+
+[source,sh]
+----
+$ bazel build -s --verbose_failures --sandbox_debug --crosstool_top=platforms/rpi3b --cpu=armv8
+----
+
+==== macOS
+
+
+See:
+
+* http://zephyr-docs.s3-website-us-east-1.amazonaws.com/online/1.6.0/getting_started/installation_mac.html
+* http://crosstool-ng.org/hg/crosstool-ng/file/715b711da3ab/docs/MacOS-X.txt
+* https://crosstool-ng.github.io/docs/os-setup/
+* https://www.jaredwolff.com/blog/cross-compiling-on-mac-osx-for-raspberry-pi/
+
+WARNING: If you use the homebrew version of crosstools-NG you may get errors like: `/usr/local/bin/ct-ng: line 7: MAKEFLAGS: command not found` so install from the sources.
+
+
+When you run `ct-ng build` you may get an error when it tries to compile gettext:
+
+[source,sh]
+----
+Installing gettext for host
+[EXTRA]    Configuring gettext
+[EXTRA]    Building gettext
+[ERROR]    configure.ac:25: error: version mismatch.  This is Automake 1.15.1,
+...etc...
+----
+
+Obviously whether you get this depends on the versions of the (host)
+build tools you have installed and those assumed by the gettext
+sources in (<ctng>/build/.build/src/gettext-0.19.8.1 in this case)
+
+This can be dealt with by either selecting an earlier version of
+gettext (using menuconfig) or by running autoreconf in the gettext
+sources. See also
+https://github.com/crosstool-ng/crosstool-ng/issues/770
+
+You may also get an error on cross-gdb, where libtool complains about
+min and max. This is because the gdb makefile uses g++ to compile c
+code, and the min and max macros clash with cxx, to the tools
+helpfully undef those macros.  The workaround is to edit
+
+/Volumes/CrossToolNG/build/.build/src/gdb-7.12.1/gdb/Makefile.in
+
+Add `-x c` wherever you find `-c` (lines 103, 1222, 2747.  This forces
+g++ to treat c code as c code; since all the sources are in c, this is
+fine. After making those edits, restart `$ ct-ng debug+`
+
+=== raspberry pi
+
+For your crosstool-ng build config, be sure to set the kernel version
+appropriately in menuconfig. Otherwise when you crossbuild libraries
+you may get "FATAL: kernel too old".  Also use --kernel-version when
+running ./configure to cross-compile
+
+On the pi: $ uname -r
+
+See https://gist.github.com/h0tw1r3/19e48ae3021122c2a2ebe691d920a9ca
+
+Check the HW:  `$ lscpu` or `$ cat /proc/cpuinfo` or `$ uname -a`
+
+[INFO ]  Installing final gcc compiler
+[ERROR]    clang: error: unsupported option '-print-multi-os-directory'
+[ERROR]    clang: error: no input files
+[INFO ]  Installing final gcc compiler: done in 444.15s (at 38:32)
+
+The clang error does not seem to matter
+
+gdb fail: see https://github.com/pfalcon/esp-open-sdk/issues/254
+
+=== ncurses
+
+To demonstrate how to cross-build with a third-party dependency.
+
+==== raspberry pi 3b
+
+Raspberry Pi 3b comes with libncurses.so but not the dev headers.
+
+[source,sh]
+----
+$ find /lib -name libncurses*
+/lib/arm-linux-gnueabihf/libncursesw.so.5
+/lib/arm-linux-gnueabihf/libncursesw.so.5.9
+/lib/arm-linux-gnueabihf/libncurses.so.5.9
+/lib/arm-linux-gnueabihf/libncurses.so.5
+----
+
+We can install the dev version on the Pi (sudo apt-get install
+libncurses5-dev libncursesw5-dev) but the goal is to build on our host
+(macOS) so we need to crosscompile ncurses and add it to the toolchain
+cosysroot.
+
+See https://crosstool-ng.github.io/docs/toolchain-usage/
+
+ncurses build bug: https://stackoverflow.com/questions/37475222/ncurses-6-0-compilation-error-error-expected-before-int, https://trac.sagemath.org/ticket/19762. Fix is to add -P to CPPFLAGS
+
+
+macOS build tuple: x86_64-apple-darwin
+
+rpi3b:
+
+$ export PATH="${PATH}:/Volumes/CrossToolNG/armv8-rpi3-linux-gnueabihf/bin"
+
+$ export COSYSROOT=$HOME/cosysroots/rpi3b
+
+Adjusted to match rpi3b builtin ncurses settings:
+
+ncurses:
+
+-P Inhibit generation of linemarkers in the output from the preprocessor
+
+$ ./configure --build=x86_64-apple-darwin \
+              --host=armv8-rpi3-linux-gnueabihf \
+              --enable-kernel=4.9.35 \
+              --prefix=/usr \
+	      --with-terminfo-dirs="/etc/terminfo:/lib/terminfo:/usr/share/terminfo" \
+	      --with-default-terminfo-dir="/etc/terminfo" \
+	      --mandir="/usr/share/man" \
+	      --without-manpages \
+	      --with-shared \
+	      --libdir="/usr/lib/arm-linux-gnueabihf" \
+              CPPFLAGS="-P"
+
+              // CPPFLAGS="-P -I$COSYSROOT/usr/include" \
+              // LDFLAGS="-L$COSYSROOT/lib \
+	      // -L$COSYSROOT/usr/lib"
+
+$ make
+$ make DESTDIR=$COSYSROOT install
+
+
+cdk: we installed ncurses in cosysroots/rpi3b, so we need to fix CPPFLAGS and LDFLAGS:
+
+$ ./configure --build=x86_64-apple-darwin \
+              --host=armv8-rpi3-linux-gnueabihf \
+              --enable-kernel=4.9.35 \
+              --prefix=/usr \
+	      --with-terminfo-dirs="/etc/terminfo:/lib/terminfo:/usr/share/terminfo" \
+	      --with-default-terminfo-dir="/etc/terminfo" \
+	      --mandir="/usr/share/man" \
+	      --without-manpages \
+	      --libdir="/usr/lib/arm-linux-gnueabihf" \
+              CPPFLAGS="-P -I$COSYSROOT/usr/include" \
+	      LDFLAGS="-L$COSYSROOT/usr/lib/arm-linux-gnueabihf"
+
+
+              // LDFLAGS="-L$COSYSROOT/lib \
+	      // -L$COSYSROOT/usr/lib"
+
+	      // --with-shared \
+$ make
+$ make DESTDIR=$COSYSROOT install
+
+
+
+Now we just need to declare $COSYSROOT as an external bazel repo in our WORKSPACE file.
+
+Terminfo stuff
+
+Once you move your pgm to the target host, you'll need to get the
+terminfo stuff right.  ncurses will search for terminfo stuff in a few
+places and the Pi might not have the stuff. In which case you'll get:
+
+Error opening terminal: linux.
+
+$ echo $TERM  =>  linux
+
+$ less /etc/terminfo/README
+
+Run ncurses5-config --terminfo-dirs to see the Pi's builtin terminfo
+search path. (But note that ncurses will look first in
+$HOME/.terminfo) Run the version that comes with the Pi and you'll see
+/etc/terminfo:/lib/terminfo:/usr/share/terminfo.  Run your
+cross-compiled version and you'll see /usr/share/terminfo.
+
+Use strace to see where your pgm is looking for the terminfo stuff:
+
+[source,sh]
+----
+$ strace ./hello-world
+... bunch o' stuff ...
+stat64("/home/pi/.terminfo", {st_mode=S_IFDIR|0755, st_size=4096, ...}) = 0
+access("/home/pi/.terminfo/l/linux", R_OK) = -1 ENOENT (No such file or directory)
+stat64("/usr/share/terminfo", {st_mode=S_IFDIR|0755, st_size=4096, ...}) = 0
+access("/usr/share/terminfo/l/linux", R_OK) = -1 ENOENT (No such file or directory)
+write(2, "Error opening terminal: linux.\n", 31Error opening terminal: linux.
+...
+----
+
+Notice that it does not look in /etc/terminfo. If you look in
+/usr/share/terminfo/l, you'll see a bunch of terminfo entries for
+linux, like linux2.6 but not one named just "linux". Where's the linux
+entry? In /lib/terminfo/l, of course.
+
+So there are two ways to fix this. One is to recompile your code,
+configuring ncurses to search /lib/terminfo:
+
+  --with-terminfo-dirs=XXX specify list of terminfo directories (default: DATADIR/terminfo)
+  --with-default-terminfo-dir=DIR default terminfo directory (default: DATADIR/terminfo)
+
+(ncurses5-config --datadir will print the datadir used to compile ncurses)
+
+The quick and dirty way is to copy /lib/terminfo/l/linux to $HOME/.terminfo/l
+
+==== Intel IoT Gateways
+
+ncurses not installed by default, but the terminfo stuff is all there:
+/etc/terminfo, /usr/share/terminfo
+
+crosstool-ng toolchain: x86_64-unknown-linux-gnu
+
+Do this in a fresh terminal: `$ export PATH="${PATH}:/your/toolchain/path/bin"`
+
+Build the toolchain, then copy the sysroot to the staging dir:
+
+$ cp -a $(x86_64-unknown-linux-gnu-gcc --your-cflags-except-sysroot -print-sysroot) \
+      /path/to/staging
+
+e.g. `$ cp -a $(/Volumes/CrossToolNG/x86_64-unknown-linux-gnu/bin/x86_64-unknown-linux-gnu-gcc -print-sysroot) $HOME/cosysroots/wrlinux`
+
+Now we can cross-build third-party libs and install them to $HOME/cosysroots/wrlinux
+
+$ export COSYSROOT=$HOME/cosysroots/wrlinux
+
+libncurses is preinstalled on wrlinux in /lib64, so we need --libdir;
+but the tools/headers are not installed
+
+WARNING: the libncurses.so file on the gateway is missing at least one
+symbol nc_disable_period. two of the programs (tic, infocmp) need
+this and will not run; others work ok (clear, toe).
+
+
+$ ./configure --build=x86_64-apple-darwin \
+              --host=x86_64-unknown-linux-gnu \
+              --enable-kernel=3.14.58 \
+	      --without-manpages \
+              --prefix=/ \
+	      --mandir="/usr/share/man" \
+	      --includedir="/usr/include" \
+	      --bindir="/usr/bin" \
+	      --libdir="/lib64" \
+	      --with-terminfo-dirs="/etc/terminfo:/usr/share/terminfo" \
+	      --with-default-terminfo-dir="/etc/terminfo" \
+              CPPFLAGS="-P -I$COSYSROOT/usr/include" \
+	      LDFLAGS="-L$COSYSROOT/lib64 \
+	      -L$COSYSROOT/usr/lib"
+
+#	      CFLAGS="-m32" \
+#	      --with-shared \
+
+$ make
+$ make DESTDIR=$COSYSROOT install
+
+
+cdk
+
+$ ./configure --build=x86_64-apple-darwin \
+              --host=x86_64-unknown-linux-gnu \
+              --enable-kernel=3.14.58 \
+	      --without-manpages \
+              CPPFLAGS="-P -I$COSYSROOT/usr/include" \
+	      LDFLAGS="-L$COSYSROOT/lib64 \
+	      -L$COSYSROOT/usr/lib"
+
+#	      CFLAGS="-m32" \
+#	      --with-shared \
+
+$ make
+$ make DESTDIR=$COSYSROOT install
+
