@@ -1,10 +1,47 @@
 # Bazel option defaults
 
-  # startup --batch --host_jvm_args=-XX:-UseParallelGC
-  # import /home/bobs_project/bazelrc
-  build -s --verbose_failures --sandbox_debug
-  build --show_timestamps --keep_going --jobs 600
-  build --color=yes
-  query --keep_going
+## Copy what you need to <root>/.bazelrc in order to customize.
+## build options specified here are cumulative.
 
-  # build:memcheck --strip=never --test_timeout=3600
+# startup --batch --host_jvm_args=-XX:-UseParallelGC
+# import /home/bobs_project/bazelrc
+
+################################################################
+# dev/debug options
+build -s --verbose_failures --sandbox_debug
+build --show_timestamps --keep_going --jobs 600
+build --color=yes
+query --keep_going
+
+################################################################
+# target: Raspberry Pi 3B
+#build --crosstool_top=//platforms/rpi3b:toolchain
+#build --cpu=armv8 # default
+
+################################################################
+# target: Intel IoT Gateway running WindRiver Linux
+#build --crosstool_top=//platforms/wrlinux:toolchain
+#build  --cpu=x86_64 # default
+
+################################################################
+# target: android, without using Bazel's android_* rules
+## control android build:
+#build --define=target=android
+
+## Bazel's default toolchain for android is broken (it pulls in the
+## wrong headers from the NDK). Use this one instead:
+#build --crosstool_top=//platforms/ndk:toolchain
+#build --android_crosstool_top=//platforms/ndk:toolchain
+
+## android target architectures:
+#build --fat_apk_cpu=x86
+#build --fat_apk_cpu=arm64-v8a
+#build --fat_apk_cpu=armeabi-v7a  # default for builtin toolchain
+
+## compilers - may not all work at the moment, see platforms/ndk/CROSSTOOL
+#build --android_compiler=clang3.8
+#build --android_compiler=gcc
+
+################################################################
+# misc
+# build:memcheck --strip=never --test_timeout=3600
