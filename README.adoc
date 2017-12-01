@@ -266,6 +266,8 @@ ncurses:
 
 -P Inhibit generation of linemarkers in the output from the preprocessor
 
+[source,sh]
+----
 $ ./configure --build=x86_64-apple-darwin \
               --host=armv8-rpi3-linux-gnueabihf \
               --enable-kernel=4.9.35 \
@@ -277,17 +279,20 @@ $ ./configure --build=x86_64-apple-darwin \
 	      --with-shared \
 	      --libdir="/usr/lib/arm-linux-gnueabihf" \
               CPPFLAGS="-P"
+$ make
+$ make DESTDIR=$COSYSROOT install
+----
+
 
               // CPPFLAGS="-P -I$COSYSROOT/usr/include" \
               // LDFLAGS="-L$COSYSROOT/lib \
 	      // -L$COSYSROOT/usr/lib"
 
-$ make
-$ make DESTDIR=$COSYSROOT install
-
 
 cdk: we installed ncurses in cosysroots/rpi3b, so we need to fix CPPFLAGS and LDFLAGS:
 
+[source,sh]
+----
 $ ./configure --build=x86_64-apple-darwin \
               --host=armv8-rpi3-linux-gnueabihf \
               --enable-kernel=4.9.35 \
@@ -299,14 +304,15 @@ $ ./configure --build=x86_64-apple-darwin \
 	      --libdir="/usr/lib/arm-linux-gnueabihf" \
               CPPFLAGS="-P -I$COSYSROOT/usr/include" \
 	      LDFLAGS="-L$COSYSROOT/usr/lib/arm-linux-gnueabihf"
-
-
-              // LDFLAGS="-L$COSYSROOT/lib \
-	      // -L$COSYSROOT/usr/lib"
-
-	      // --with-shared \
 $ make
 $ make DESTDIR=$COSYSROOT install
+----
+
+
+// LDFLAGS="-L$COSYSROOT/lib \
+// -L$COSYSROOT/usr/lib"
+// --with-shared \
+
 
 
 
