@@ -256,9 +256,11 @@ macOS build tuple: x86_64-apple-darwin
 
 rpi3b:
 
+[source,sh]
+----
 $ export PATH="${PATH}:/Volumes/CrossToolNG/armv8-rpi3-linux-gnueabihf/bin"
-
 $ export COSYSROOT=$HOME/cosysroots/rpi3b
+----
 
 Adjusted to match rpi3b builtin ncurses settings:
 
@@ -284,9 +286,9 @@ $ make DESTDIR=$COSYSROOT install
 ----
 
 
-              // CPPFLAGS="-P -I$COSYSROOT/usr/include" \
-              // LDFLAGS="-L$COSYSROOT/lib \
-	      // -L$COSYSROOT/usr/lib"
+// CPPFLAGS="-P -I$COSYSROOT/usr/include" \
+// LDFLAGS="-L$COSYSROOT/lib \
+// -L$COSYSROOT/usr/lib"
 
 
 cdk: we installed ncurses in cosysroots/rpi3b, so we need to fix CPPFLAGS and LDFLAGS:
@@ -392,7 +394,8 @@ WARNING: the libncurses.so file on the gateway is missing at least one
 symbol nc_disable_period. two of the programs (tic, infocmp) need
 this and will not run; others work ok (clear, toe).
 
-
+[source,sh]
+----
 $ ./configure --build=x86_64-apple-darwin \
               --host=x86_64-unknown-linux-gnu \
               --enable-kernel=3.14.58 \
@@ -407,16 +410,19 @@ $ ./configure --build=x86_64-apple-darwin \
               CPPFLAGS="-P -I$COSYSROOT/usr/include" \
 	      LDFLAGS="-L$COSYSROOT/lib64 \
 	      -L$COSYSROOT/usr/lib"
-
-#	      CFLAGS="-m32" \
-#	      --with-shared \
-
 $ make
 $ make DESTDIR=$COSYSROOT install
+----
+
+// CFLAGS="-m32" \
+//--with-shared \
+
 
 
 cdk
 
+[source,sh]
+----
 $ ./configure --build=x86_64-apple-darwin \
               --host=x86_64-unknown-linux-gnu \
               --enable-kernel=3.14.58 \
@@ -424,10 +430,11 @@ $ ./configure --build=x86_64-apple-darwin \
               CPPFLAGS="-P -I$COSYSROOT/usr/include" \
 	      LDFLAGS="-L$COSYSROOT/lib64 \
 	      -L$COSYSROOT/usr/lib"
-
-#	      CFLAGS="-m32" \
-#	      --with-shared \
-
 $ make
 $ make DESTDIR=$COSYSROOT install
+----
+
+//CFLAGS="-m32" \
+//--with-shared \
+
 
