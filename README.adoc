@@ -374,18 +374,29 @@ ncurses not installed by default, but the terminfo stuff is all there:
 
 crosstool-ng toolchain: x86_64-unknown-linux-gnu
 
-Do this in a fresh terminal: `$ export PATH="${PATH}:/your/toolchain/path/bin"`
+Do this in a fresh terminal:
+
+[source,sh]
+----
+$ export PATH="${PATH}:/your/toolchain/path/bin"
+----
 
 Build the toolchain, then copy the sysroot to the staging dir:
 
+[source,sh]
+----
 $ cp -a $(x86_64-unknown-linux-gnu-gcc --your-cflags-except-sysroot -print-sysroot) \
-      /path/to/staging
-
-e.g. `$ cp -a $(/Volumes/CrossToolNG/x86_64-unknown-linux-gnu/bin/x86_64-unknown-linux-gnu-gcc -print-sysroot) $HOME/cosysroots/wrlinux`
+      /path/to/cosysroots
+# e.g.
+$ cp -a $(/Volumes/CrossToolNG/x86_64-unknown-linux-gnu/bin/x86_64-unknown-linux-gnu-gcc -print-sysroot) $HOME/cosysroots/wrlinux
+----
 
 Now we can cross-build third-party libs and install them to $HOME/cosysroots/wrlinux
 
+[source,sh]
+----
 $ export COSYSROOT=$HOME/cosysroots/wrlinux
+----
 
 libncurses is preinstalled on wrlinux in /lib64, so we need --libdir;
 but the tools/headers are not installed
